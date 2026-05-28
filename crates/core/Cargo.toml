@@ -1,0 +1,17 @@
+[package]
+name = "hangul-syllable"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = "0.9"
+log = "0.4"
+image = { workspace = true }
+
+[features]
+cli = ["dep:clap"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+clap = { version = "4.4", features = ["derive"], optional = true }

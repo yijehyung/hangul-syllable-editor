@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+
+      - name: Test
+        run: cargo test --workspace
+
+  build-windows:
+    needs: [test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release -p hangul-syllable-app
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $name = "hangul-syllable-editor-${tag}-windows-x64"
+          New-Item -ItemType Directory -Path $name
+          Copy-Item target/release/hangul-syllable-app.exe "$name/"
+          Compress-Archive -Path $name -DestinationPath "${name}.zip"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: windows
+          path: hangul-syllable-editor-*-windows-x64.zip
+
+  build-macos:
+    needs: [test]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-bundle
+        run: cargo install cargo-bundle
+
+      - name: Build .app bundle
+        run: cargo bundle --release -p hangul-syllable-app
+
+      - name: Sign (ad-hoc)
+        run: |
+          codesign --force --deep --sign - \
+            "target/release/bundle/osx/Hangul Syllable Editor.app"
+
+      - name: Package
+        run: |
+          TAG="${{ github.ref_name }}"
+          NAME="hangul-syllable-editor-${TAG}-macos"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "target/release/bundle/osx/Hangul Syllable Editor.app" \
+            "${NAME}.zip"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: macos
+          path: hangul-syllable-editor-*-macos.zip
+
+  build-linux:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+
+      - name: Build
+        run: cargo build --release -p hangul-syllable-app
+
+      - name: Package
+        run: |
+          TAG="${{ github.ref_name }}"
+          NAME="hangul-syllable-editor-${TAG}-linux-x64"
+          mkdir "$NAME"
+          cp target/release/hangul-syllable-app "$NAME/"
+          tar -czf "${NAME}.tar.gz" "$NAME"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: linux
+          path: hangul-syllable-editor-*-linux-x64.tar.gz
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [test, build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            hangul-syllable-editor-*.zip
+            hangul-syllable-editor-*.tar.gz
+          generate_release_notes: true

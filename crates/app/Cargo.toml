@@ -1,0 +1,41 @@
+[package]
+name = "hangul-syllable-app"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[package.metadata.bundle]
+name = "Hangul Syllable Editor"
+identifier = "io.github.yijehyung.hangul-syllable-editor"
+icon = ["assets/icon.icns"]
+short_description = "Pixel Hangul syllable editor"
+copyright = "Copyright (c) 2025 yijehyung"
+
+[build-dependencies]
+winresource = "0.1"
+
+[dependencies]
+hangul-syllable = { path = "../core" }
+eframe = "0.34.3"
+serde = { workspace = true }
+rfd = "0.17"
+log = "0.4"
+image = { workspace = true }
+egui-system-fonts = "0.34.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "BeforeUnloadEvent",
+    "Blob",
+    "BlobPropertyBag",
+    "Document",
+    "HtmlAnchorElement",
+    "Url",
+    "Window",
+] }
+js-sys = "0.3"

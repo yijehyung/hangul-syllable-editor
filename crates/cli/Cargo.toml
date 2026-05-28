@@ -1,0 +1,14 @@
+[package]
+name = "hangul-syllable-cli"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "hangul-syllable"
+path = "src/main.rs"
+
+[dependencies]
+hangul-syllable = { path = "../core", features = ["cli"] }
+clap = { version = "4.4", features = ["derive"] }
+env_logger = "0.11"

@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/app",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+image = "0.25"
