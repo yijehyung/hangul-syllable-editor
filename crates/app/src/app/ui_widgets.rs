@@ -128,15 +128,19 @@ pub fn pick_group_combo(
 ) {
     let list: Vec<&ComponentGroup> = groups.iter().filter(|g| g.target == target).collect();
 
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.label(format!("{label}:"));
         let current = group_display_name(groups, selected_group_id);
 
-        egui::ComboBox::from_id_salt(id).selected_text(current).show_ui(ui, |ui| {
-            for g in list {
-                ui.selectable_value(selected_group_id, g.id.clone(), g.name.clone());
-            }
-        });
+        let width = ui.available_width().clamp(96.0, 260.0);
+        egui::ComboBox::from_id_salt(id)
+            .selected_text(current)
+            .width(width)
+            .show_ui(ui, |ui| {
+                for g in list {
+                    ui.selectable_value(selected_group_id, g.id.clone(), g.name.clone());
+                }
+            });
     });
 }
 
@@ -146,7 +150,7 @@ pub fn ui_charset_toggle(
     label: &str,
     cond: &mut CharSetCond,
     allowed: &[char],
-    per_row: usize,
+    _per_row: usize,
     lang: crate::i18n::Lang,
 ) {
     let base_id = id;
@@ -162,20 +166,25 @@ pub fn ui_charset_toggle(
         }
     };
 
+    let max_width = (visible_width(ui) - 12.0).max(1.0);
+    ui.set_max_width(max_width);
     ui.group(|ui| {
-        ui.horizontal(|ui| {
-            ui.label(label);
+        ui.set_width(max_width);
+        ui.set_max_width(max_width);
+        ui.label(label);
 
-            let mode_text = match cond {
-                CharSetCond::Any => w.widgets.any,
-                CharSetCond::Include(_) => w.widgets.include,
-                CharSetCond::Exclude(_) => w.widgets.exclude,
-            };
+        let mode_text = match cond {
+            CharSetCond::Any => w.widgets.any,
+            CharSetCond::Include(_) => w.widgets.include,
+            CharSetCond::Exclude(_) => w.widgets.exclude,
+        };
 
-            let mut set_mode: Option<u8> = None;
+        let mut set_mode: Option<u8> = None;
 
+        ui.horizontal_wrapped(|ui| {
             egui::ComboBox::from_id_salt(base_id.with("mode_combo"))
                 .selected_text(mode_text)
+                .width(ui.available_width().clamp(84.0, 140.0))
                 .show_ui(ui, |ui| {
                     if ui.selectable_label(matches!(cond, CharSetCond::Any), w.widgets.any).clicked() {
                         set_mode = Some(0);
@@ -197,35 +206,40 @@ pub fn ui_charset_toggle(
             if ui.small_button(w.widgets.clear).clicked() {
                 cond.clear();
             }
-
-            if let Some(m) = set_mode {
-                *cond = match m {
-                    0 => CharSetCond::Any,
-                    1 => CharSetCond::Include(BTreeSet::new()),
-                    _ => CharSetCond::Exclude(BTreeSet::new()),
-                };
-            }
         });
+
+        if let Some(m) = set_mode {
+            *cond = match m {
+                0 => CharSetCond::Any,
+                1 => CharSetCond::Include(BTreeSet::new()),
+                _ => CharSetCond::Exclude(BTreeSet::new()),
+            };
+        }
 
         let enabled = !matches!(cond, CharSetCond::Any);
 
         ui.add_enabled_ui(enabled, |ui| {
-            egui::Grid::new(base_id.with("grid")).spacing([4.0, 4.0]).show(ui, |ui| {
-                for (i, ch) in allowed.iter().copied().enumerate() {
-                    let on = match cond {
-                        CharSetCond::Include(set) | CharSetCond::Exclude(set) => set.contains(&ch),
-                        CharSetCond::Any => false,
-                    };
+            let cell_w = 46.0;
+            let gap = 4.0;
+            let cols = (((max_width + gap) / (cell_w + gap)).floor() as usize).clamp(1, 10);
+            for row in allowed.chunks(cols) {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = gap;
+                    for &ch in row {
+                        let on = match cond {
+                            CharSetCond::Include(set) | CharSetCond::Exclude(set) => set.contains(&ch),
+                            CharSetCond::Any => false,
+                        };
 
-                    if ui.selectable_label(on, disp(ch)).clicked() {
-                        cond.toggle(ch);
+                        if ui
+                            .add_sized(egui::vec2(cell_w, 24.0), egui::Button::new(disp(ch)).selected(on))
+                            .clicked()
+                        {
+                            cond.toggle(ch);
+                        }
                     }
-
-                    if (i + 1) % per_row == 0 {
-                        ui.end_row();
-                    }
-                }
-            });
+                });
+            }
         });
 
         if let CharSetCond::Include(set) | CharSetCond::Exclude(set) = cond
@@ -246,13 +260,23 @@ pub fn ui_charset_toggle(
 }
 
 pub fn sub_panel_tabs(ui: &mut egui::Ui, selected: &mut usize, labels: &[&str]) {
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         for (i, &label) in labels.iter().enumerate() {
             if ui.selectable_label(*selected == i, label).clicked() {
                 *selected = i;
             }
         }
     });
+}
+
+pub fn columns_for_width(ui: &egui::Ui, cell_width: f32, gap: f32, max_cols: usize) -> usize {
+    let width = visible_width(ui).max(cell_width);
+    let cols = ((width + gap) / (cell_width + gap)).floor() as usize;
+    cols.clamp(1, max_cols.max(1))
+}
+
+pub fn visible_width(ui: &egui::Ui) -> f32 {
+    ui.available_width().min(ui.max_rect().width()).min(ui.clip_rect().width()).max(1.0)
 }
 
 pub fn ui_separator_soft(ui: &mut egui::Ui) {

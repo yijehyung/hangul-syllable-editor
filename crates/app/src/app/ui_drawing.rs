@@ -41,7 +41,7 @@ impl FontEditor {
                     ui.add_space(8.0);
                     self.ui_hangul_browser_sidebar(ui);
                 }
-                _ => self.render_drawing_edit_area(ui),
+                _ => self.render_drawing_edit_area(ui, true),
             }
             return;
         }
@@ -57,11 +57,11 @@ impl FontEditor {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            self.render_drawing_edit_area(ui);
+            self.render_drawing_edit_area(ui, false);
         });
     }
 
-    fn render_drawing_edit_area(&mut self, ui: &mut egui::Ui) {
+    fn render_drawing_edit_area(&mut self, ui: &mut egui::Ui, force_part_tabs: bool) {
         let s = crate::i18n::t(self.lang);
         let layout = self.compute_layout();
 
@@ -95,7 +95,7 @@ impl FontEditor {
         };
 
         let min_col_w = self.project.canvas_w.max(self.project.canvas_h) as f32 * 8.0 + 20.0;
-        let use_three_cols = ui.available_width() >= min_col_w * 3.0;
+        let use_three_cols = !force_part_tabs && ui.available_width() >= min_col_w * 3.0;
 
         if use_three_cols {
             ui.columns(3, |cols| {

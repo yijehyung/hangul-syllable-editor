@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     editor::FontEditor,
-    ui_widgets::{JamoTriplet, move_vec, show_jamo_triplet_grid, show_syllable_grid},
+    ui_widgets::{JamoTriplet, columns_for_width, move_vec, show_jamo_triplet_grid, show_syllable_grid},
 };
 use hangul_syllable::core::hangul::{allowed_chars_extended, allowed_chars_for_target, decompose_hangul, get_jamo_char};
 use hangul_syllable::{GlyphKey, GroupRef, HangulComponent};
@@ -49,12 +49,12 @@ impl FontEditor {
         egui::Panel::bottom("left_bottom_new_group").resizable(false).show_inside(ui, |ui| {
             ui.heading(s.components.new_group);
 
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(format!("{}:", s.common.name));
                 ui.text_edit_singleline(&mut self.new_group.name);
             });
 
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(s.components.target);
                 let target_text = match self.new_group.target {
                     HangulComponent::Cho => s.common.cho,
@@ -92,7 +92,7 @@ impl FontEditor {
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.selectable_value(&mut self.components.group_filter, None, s.components.all);
                 ui.selectable_value(&mut self.components.group_filter, Some(HangulComponent::Cho), s.common.cho);
                 ui.selectable_value(&mut self.components.group_filter, Some(HangulComponent::Jung), s.common.jung);
@@ -139,7 +139,7 @@ impl FontEditor {
                 .map(|gid| !self.project.engine.rules.is_group_referenced(gid))
                 .unwrap_or(false);
 
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui.button(s.common.add).clicked() {
                     let target = self.components.group_filter.unwrap_or(HangulComponent::Cho);
                     let ext_chars: Vec<char>;
@@ -191,7 +191,10 @@ impl FontEditor {
                             }
                         );
 
-                        let resp = ui.add(egui::Button::new(label).selected(selected));
+                        let resp = ui.add_sized(
+                            egui::vec2(ui.available_width(), 24.0),
+                            egui::Button::new(label).selected(selected).wrap(),
+                        );
 
                         if resp.clicked() {
                             cmd = Some(Cmd::SelectById(gid.clone()));
@@ -395,7 +398,7 @@ impl FontEditor {
 
         {
             let g = &mut self.project.engine.rules.groups[group_idx];
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(format!("{}:", s.common.name));
                 if ui.text_edit_singleline(&mut g.name).changed() {
                     self.project.is_dirty = true;
@@ -416,12 +419,17 @@ impl FontEditor {
             .id_salt(format!("edit_members_scroll_{}", group_id))
             .max_height(150.0)
             .show(ui, |ui| {
+                let cell_w = 34.0;
+                let cols = columns_for_width(ui, cell_w, 4.0, 15);
                 egui::Grid::new(format!("edit_members_grid_{}", group_id))
                     .spacing([4.0, 4.0])
                     .show(ui, |ui| {
                         for (i, ch) in allowed.iter().copied().enumerate() {
                             let is_on = self.project.engine.rules.groups[group_idx].members.contains(&ch);
-                            if ui.selectable_label(is_on, ch.to_string()).clicked() {
+                            if ui
+                                .add_sized(egui::vec2(cell_w, 24.0), egui::Button::new(ch.to_string()).selected(is_on))
+                                .clicked()
+                            {
                                 if is_on {
                                     self.project.engine.rules.groups[group_idx].members.remove(&ch);
                                 } else {
@@ -429,14 +437,14 @@ impl FontEditor {
                                 }
                                 self.invalidate_render_caches();
                             }
-                            if (i + 1) % 15 == 0 {
+                            if (i + 1) % cols == 0 {
                                 ui.end_row();
                             }
                         }
                     });
             });
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button(s.components.select_all).clicked() {
                 self.project.engine.rules.groups[group_idx].members = allowed.iter().copied().collect();
                 self.invalidate_render_caches();
@@ -452,7 +460,6 @@ impl FontEditor {
 
         let members_sorted: Vec<char> = self.project.engine.rules.groups[group_idx].members.iter().copied().collect();
         let thumb = 36.0;
-        let cols = 10;
 
         #[derive(Clone)]
         enum PixelCmd {
@@ -465,6 +472,7 @@ impl FontEditor {
             .id_salt(format!("thumb_scroll_{}", group_id))
             .max_height(250.0)
             .show(ui, |ui| {
+                let cols = columns_for_width(ui, thumb, 8.0, 10);
                 egui::Grid::new(format!("thumb_grid_{}", group_id))
                     .spacing([8.0, 12.0])
                     .show(ui, |ui| {
@@ -537,7 +545,7 @@ impl FontEditor {
             if self.project.engine.rules.groups[group_idx].members.contains(&ch) {
                 let key = GlyphKey::new(kind, ch, group_id.clone());
 
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.label(s.components.adjust_position);
                     if ui.button("⏴").on_hover_text(s.components.move_left).clicked() {
                         if let Some(g) = self.project.store.get_mut(&key) {

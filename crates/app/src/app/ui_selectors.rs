@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::app::{
     editor::FontEditor,
-    ui_widgets::{move_vec, show_syllable_grid_two_tone, ui_charset_toggle, ui_separator_soft},
+    ui_widgets::{move_vec, show_syllable_grid_two_tone, ui_charset_toggle, ui_separator_soft, visible_width},
 };
 use hangul_syllable::core::hangul::{
     NO_JONG, cho_allowed, cho_allowed_ext, decompose_hangul, get_jamo_char, jong_allowed_with_none, jong_allowed_with_none_ext,
@@ -21,11 +21,17 @@ impl FontEditor {
             match self.narrow_sel_sub {
                 0 => self.render_sel_list_content(ui),
                 1 => {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        if self.render_sel_editor_content(ui) {
-                            self.invalidate_render_caches();
-                        }
-                    });
+                    let content_width = visible_width(ui);
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false, false])
+                        .max_width(content_width)
+                        .show(ui, |ui| {
+                            ui.set_width(content_width);
+                            ui.set_max_width(content_width);
+                            if self.render_sel_editor_content(ui) {
+                                self.invalidate_render_caches();
+                            }
+                        });
                 }
                 2 => self.render_sel_preview_content(ui),
                 _ => {}
@@ -77,7 +83,7 @@ impl FontEditor {
 
         let mut cmd: Option<Cmd> = None;
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button(s.common.add).clicked() {
                 cmd = Some(Cmd::Add);
             }
@@ -137,7 +143,10 @@ impl FontEditor {
                         let display = if rname.is_empty() { rid.as_str() } else { rname.as_str() };
                         let text = format!("[{}] {} -> {}", prio, display, tpl_id);
 
-                        let resp = ui.add(egui::Button::new(text).selected(selected));
+                        let resp = ui.add_sized(
+                            egui::vec2(ui.available_width(), 24.0),
+                            egui::Button::new(text).selected(selected).wrap(),
+                        );
 
                         if resp.clicked() {
                             cmd = Some(Cmd::SelectById(rid.clone()));
@@ -373,6 +382,7 @@ impl FontEditor {
     }
 
     fn render_sel_editor_content(&mut self, ui: &mut egui::Ui) -> bool {
+        ui.set_max_width(visible_width(ui));
         let s = crate::i18n::t(self.lang);
 
         if self.project.engine.rules.selectors.is_empty() {
@@ -384,9 +394,12 @@ impl FontEditor {
         let mut changed = false;
 
         let mut widget_ch = false;
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(format!("{}:", s.common.name));
-            if ui.text_edit_singleline(&mut r.name).changed() {
+            if ui
+                .add(egui::TextEdit::singleline(&mut r.name).desired_width(ui.available_width().clamp(120.0, 320.0)))
+                .changed()
+            {
                 widget_ch = true;
             }
             ui.label(s.selectors.priority);
@@ -478,6 +491,7 @@ impl FontEditor {
                 .to_string();
             egui::ComboBox::from_id_salt(ui.make_persistent_id("sel_tpl_pick"))
                 .selected_text(selected_text)
+                .width(ui.available_width().clamp(120.0, 320.0))
                 .show_ui(ui, |ui| {
                     for (tid, tname) in &tpl_options {
                         ui.selectable_value(&mut r.template_id, tid.clone(), tname.as_str());

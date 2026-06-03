@@ -4,6 +4,7 @@ use crate::app::{
     editor::FontEditor,
     ui_widgets::{
         JamoTriplet, move_vec, pick_group_combo, show_jamo_triplet_grid, show_syllable_grid, ui_charset_toggle, ui_separator_soft,
+        visible_width,
     },
 };
 use hangul_syllable::core::hangul::{
@@ -22,11 +23,17 @@ impl FontEditor {
             match self.narrow_tpl_sub {
                 0 => self.ui_template_list_panel(ui),
                 1 => {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        if self.ui_template_settings(ui) {
-                            self.invalidate_render_caches();
-                        }
-                    });
+                    let content_width = visible_width(ui);
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false, false])
+                        .max_width(content_width)
+                        .show(ui, |ui| {
+                            ui.set_width(content_width);
+                            ui.set_max_width(content_width);
+                            if self.ui_template_settings(ui) {
+                                self.invalidate_render_caches();
+                            }
+                        });
                 }
                 2 => self.ui_template_preview_panel(ui),
                 _ => {}
@@ -47,11 +54,17 @@ impl FontEditor {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                if self.ui_template_settings(ui) {
-                    self.invalidate_render_caches();
-                }
-            });
+            let content_width = visible_width(ui);
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .max_width(content_width)
+                .show(ui, |ui| {
+                    ui.set_width(content_width);
+                    ui.set_max_width(content_width);
+                    if self.ui_template_settings(ui) {
+                        self.invalidate_render_caches();
+                    }
+                });
         });
     }
 
@@ -101,7 +114,7 @@ impl FontEditor {
             .unwrap_or(false);
         let can_delete_tpl = !self.project.engine.rules.templates.is_empty() && !tpl_referenced;
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button(s.common.add).clicked() {
                 let base_cho = self.project.engine.rules.base_cho_group_id.clone();
                 let base_jung = self.project.engine.rules.base_jung_group_id.clone();
@@ -150,7 +163,10 @@ impl FontEditor {
                 for (i, (tid, tname)) in templates_snapshot.iter().enumerate() {
                     let display = if tname.is_empty() { tid.as_str() } else { tname.as_str() };
                     let selected = i == self.tpl_editor.selected_template;
-                    let resp = ui.add(egui::Button::new(display).selected(selected));
+                    let resp = ui.add_sized(
+                        egui::vec2(ui.available_width(), 24.0),
+                        egui::Button::new(display).selected(selected).wrap(),
+                    );
 
                     if resp.clicked() {
                         cmd = Some(Cmd::SelectById(tid.clone()));
@@ -332,7 +348,7 @@ impl FontEditor {
                     rule.name.as_str()
                 }
                 .to_string();
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     if ui.button(s.templates.back_to_all).clicked() {
                         self.tpl_editor.selected_variant_rule = None;
                     }
@@ -418,6 +434,7 @@ impl FontEditor {
     }
 
     fn ui_template_settings(&mut self, ui: &mut egui::Ui) -> bool {
+        ui.set_max_width(visible_width(ui));
         let s = crate::i18n::t(self.lang);
         if self.project.engine.rules.templates.is_empty() {
             ui.label(s.templates.no_template);
@@ -434,9 +451,11 @@ impl FontEditor {
             ui.separator();
 
             let mut name_ch = false;
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(format!("{}:", s.common.name));
-                name_ch = ui.text_edit_singleline(&mut t.name).changed();
+                name_ch = ui
+                    .add(egui::TextEdit::singleline(&mut t.name).desired_width(ui.available_width().clamp(120.0, 320.0)))
+                    .changed();
             });
             if name_ch {
                 changed = true;
@@ -487,7 +506,7 @@ impl FontEditor {
         ui.small(s.templates.variant_rules_hint);
 
         let mut add_rule = false;
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button(s.templates.add_rule).clicked() {
                 add_rule = true;
             }
@@ -534,7 +553,12 @@ impl FontEditor {
 
             let display_name = if rname.is_empty() { rid.as_str() } else { rname.as_str() };
             let is_rule_selected = self.tpl_editor.selected_variant_rule.as_deref() == Some(rid.as_str());
-            let header_resp = ui.add(egui::Button::new(format!("#{}  {}  (prio: {})", i, display_name, prio)).selected(is_rule_selected));
+            let header_resp = ui.add_sized(
+                egui::vec2(ui.available_width(), 24.0),
+                egui::Button::new(format!("#{}  {}  (prio: {})", i, display_name, prio))
+                    .selected(is_rule_selected)
+                    .wrap(),
+            );
             if header_resp.clicked() {
                 if is_rule_selected {
                     self.tpl_editor.selected_variant_rule = None;
@@ -578,11 +602,16 @@ impl FontEditor {
             });
 
             let mut rule_ch = false;
+            let rule_group_width = visible_width(ui);
             ui.group(|ui| {
+                ui.set_max_width(rule_group_width);
                 let mut widget_ch = false;
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     ui.label(format!("{}:", s.common.name));
-                    if ui.text_edit_singleline(&mut r.name).changed() {
+                    if ui
+                        .add(egui::TextEdit::singleline(&mut r.name).desired_width(ui.available_width().clamp(120.0, 320.0)))
+                        .changed()
+                    {
                         widget_ch = true;
                     }
                     ui.label(s.selectors.priority);
@@ -770,8 +799,8 @@ pub fn pick_group_combo_opt(
     lang: crate::i18n::Lang,
 ) {
     let none_text = crate::i18n::t(lang).common.none;
-    ui.horizontal(|ui| {
-        ui.label(label);
+    ui.horizontal_wrapped(|ui| {
+        ui.label(format!("{label}:"));
 
         let selected_text = match v.as_deref() {
             None => none_text.to_string(),
@@ -782,12 +811,16 @@ pub fn pick_group_combo_opt(
                 .unwrap_or_else(|| format!("(missing) {}", gid)),
         };
 
-        egui::ComboBox::from_id_salt(id).selected_text(selected_text).show_ui(ui, |ui| {
-            ui.selectable_value(v, None, none_text);
-            for g in groups.iter().filter(|g| g.target == target) {
-                ui.selectable_value(v, Some(g.id.clone()), g.name.to_string());
-            }
-        });
+        let width = ui.available_width().clamp(96.0, 260.0);
+        egui::ComboBox::from_id_salt(id)
+            .selected_text(selected_text)
+            .width(width)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(v, None, none_text);
+                for g in groups.iter().filter(|g| g.target == target) {
+                    ui.selectable_value(v, Some(g.id.clone()), g.name.to_string());
+                }
+            });
     });
 }
 
