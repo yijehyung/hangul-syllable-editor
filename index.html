@@ -2,6 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Pixel Hangul Syllable</title>
     
     <link rel="icon" href="icon.ico" />
@@ -30,15 +31,15 @@
         font-family: sans-serif;
       }
     </style>
-  <link rel="modulepreload" href="/hangul-syllable-editor/hangul-syllable-app-7e1dc9c4d3297804.js" crossorigin="anonymous" integrity="sha384-vCByBE8zExIWCkZKibecoucTbEqr98kb2WJVdMrYwd7fYjVzH8gjLeSRHfl+6aW5"><link rel="preload" href="/hangul-syllable-editor/hangul-syllable-app-7e1dc9c4d3297804_bg.wasm" crossorigin="anonymous" integrity="sha384-M+sMhmynw6Bo1SKcCcLx52VF8p95h64/RNmf6S/C6973aSa/RTwJmgJuvovvlMrQ" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/hangul-syllable-editor/hangul-syllable-app-872da5205bb061ae.js" crossorigin="anonymous" integrity="sha384-/T0bNDpXYy8KYRGheAk67s3E+Wyw7gZCYqahZd1dLe/pTx+/PfiFcUlEJSQZmxrH"><link rel="preload" href="/hangul-syllable-editor/hangul-syllable-app-872da5205bb061ae_bg.wasm" crossorigin="anonymous" integrity="sha384-4d5OY5/ZQuKSbXk4mEtOdNnFH2CoS19ktDiZUJYjJXRwded5RXvLIyLxB9buEydQ" as="fetch" type="application/wasm"></head>
 
   <body>
     <canvas id="the_canvas_id"></canvas>
     <p id="loading_text" class="centered">Loading…</p>
   
 <script type="module">
-import init, * as bindings from '/hangul-syllable-editor/hangul-syllable-app-7e1dc9c4d3297804.js';
-const wasm = await init({ module_or_path: '/hangul-syllable-editor/hangul-syllable-app-7e1dc9c4d3297804_bg.wasm' });
+import init, * as bindings from '/hangul-syllable-editor/hangul-syllable-app-872da5205bb061ae.js';
+const wasm = await init({ module_or_path: '/hangul-syllable-editor/hangul-syllable-app-872da5205bb061ae_bg.wasm' });
 
 
 window.wasmBindings = bindings;
