@@ -58,6 +58,7 @@ impl FontEditor {
         grid_step: f32,
     ) -> bool {
         let pointer_pos = response.interact_pointer_pos();
+        let now = ui.ctx().input(|i| i.time);
         let (pressed_l, down_l, released_l, pressed_r, down_r, released_r) = ui.ctx().input(|i| {
             (
                 i.pointer.button_pressed(egui::PointerButton::Primary),
@@ -68,29 +69,49 @@ impl FontEditor {
                 i.pointer.button_released(egui::PointerButton::Secondary),
             )
         });
+        let pointer_cell = pointer_pos.and_then(|pos| {
+            let local = pos - response.rect.min;
+            let gx = (local.x / grid_step).floor() as i32;
+            let gy = (local.y / grid_step).floor() as i32;
+            (gx >= 0 && gy >= 0 && gx < canvas_w && gy < canvas_h).then_some((gx, gy))
+        });
 
         if response.hovered() {
             if pressed_l {
                 let mode = if self.drawing.pen_toggle_mode {
-                    let toggled = pointer_pos.and_then(|pos| {
-                        let local = pos - response.rect.min;
-                        let gx = (local.x / grid_step).floor() as i32;
-                        let gy = (local.y / grid_step).floor() as i32;
-                        if gx >= 0 && gy >= 0 && gx < canvas_w && gy < canvas_h {
-                            let is_set = self.project.store.get(key).is_some_and(|g| g.pixels.contains(&(gx, gy)));
-                            Some(if is_set { PaintMode::Erase } else { PaintMode::Draw })
-                        } else {
-                            None
+                    if let Some(cell) = pointer_cell
+                        && self
+                            .drawing
+                            .last_toggle_press
+                            .as_ref()
+                            .is_some_and(|(last_key, last_cell, t)| last_key == key && *last_cell == cell && now - *t < 0.35)
+                    {
+                        if self.drawing.stroke_start.is_none() {
+                            self.drawing.suppress_touch_duplicate_stroke = true;
+                            self.drawing.paint_mode = None;
+                            self.drawing.last_paint_cell = None;
                         }
+                        return false;
+                    }
+
+                    let toggled = pointer_cell.map(|(gx, gy)| {
+                        let is_set = self.project.store.get(key).is_some_and(|g| g.pixels.contains(&(gx, gy)));
+                        if is_set { PaintMode::Erase } else { PaintMode::Draw }
                     });
+                    if let Some(cell) = pointer_cell {
+                        self.drawing.last_toggle_press = Some((key.clone(), cell, now));
+                    }
+                    self.drawing.suppress_touch_duplicate_stroke = false;
                     toggled.unwrap_or(PaintMode::Draw)
                 } else {
+                    self.drawing.suppress_touch_duplicate_stroke = false;
                     PaintMode::Draw
                 };
                 self.drawing.paint_mode = Some(mode);
                 self.drawing.last_paint_cell = None;
                 self.drawing.stroke_start = Some((key.clone(), self.get_glyph_pixels(key)));
             } else if pressed_r && !self.drawing.pen_toggle_mode {
+                self.drawing.suppress_touch_duplicate_stroke = false;
                 self.drawing.paint_mode = Some(PaintMode::Erase);
                 self.drawing.last_paint_cell = None;
                 self.drawing.stroke_start = Some((key.clone(), self.get_glyph_pixels(key)));
@@ -111,19 +132,21 @@ impl FontEditor {
             }
             self.drawing.paint_mode = None;
             self.drawing.last_paint_cell = None;
+            self.drawing.suppress_touch_duplicate_stroke = false;
         }
 
-        let is_painting = match self.drawing.paint_mode {
-            Some(PaintMode::Draw) => down_l,
-            Some(PaintMode::Erase) => {
-                if self.drawing.pen_toggle_mode {
-                    down_l
-                } else {
-                    down_r
+        let is_painting = !self.drawing.suppress_touch_duplicate_stroke
+            && match self.drawing.paint_mode {
+                Some(PaintMode::Draw) => down_l,
+                Some(PaintMode::Erase) => {
+                    if self.drawing.pen_toggle_mode {
+                        down_l
+                    } else {
+                        down_r
+                    }
                 }
-            }
-            None => false,
-        };
+                None => false,
+            };
 
         if is_painting && let Some(pos) = pointer_pos {
             let local = pos - response.rect.min;

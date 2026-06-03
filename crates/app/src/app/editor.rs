@@ -140,6 +140,8 @@ pub struct DrawingState {
     pub pixel_clipboard: Option<BTreeSet<(i32, i32)>>,
     pub active_edit_key: Option<GlyphKey>,
     pub pen_toggle_mode: bool,
+    pub(super) suppress_touch_duplicate_stroke: bool,
+    pub(super) last_toggle_press: Option<(GlyphKey, (i32, i32), f64)>,
 }
 
 impl Default for DrawingState {
@@ -158,6 +160,8 @@ impl Default for DrawingState {
             pixel_clipboard: None,
             active_edit_key: None,
             pen_toggle_mode: false,
+            suppress_touch_duplicate_stroke: false,
+            last_toggle_press: None,
         }
     }
 }
